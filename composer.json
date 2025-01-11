@@ -1,0 +1,38 @@
+{
+    "name": "kipjr/php-msgraph-auth",
+    "description": "PHP MSGraph Auth Classes,
+    "keywords": ["msgraph", "php"],
+    "license": "MIT"
+    "type": "project",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.2",
+        "guzzlehttp/guzzle": "^7.8.1",
+        "microsoft/microsoft-graph": "^1"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23.1",
+        "phpunit/phpunit": "^10.5.20"
+    },
+    "autoload": {
+        "classmap": [ ],
+        "psr-4": {  },
+        "files": [ ]
+    },
+    "autoload-dev": {
+        "psr-4": {  }
+    },
+    "extra": {
+      
+    },
+    "scripts": {
+    },
+    "config": {
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "allow-plugins": {
+        }        
+    }
+}
