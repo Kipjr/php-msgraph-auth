@@ -1,6 +1,6 @@
 {
     "name": "kipjr/php-msgraph-auth",
-    "description": "PHP MSGraph Auth Classes,
+    "description": "PHP MSGraph Auth Classes",
     "keywords": ["msgraph", "php"],
     "license": "MIT"
     "type": "project",
