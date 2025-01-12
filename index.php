@@ -4,12 +4,15 @@ require 'vendor/autoload.php';
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Model;
 
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+
 session_start();
 
-define('CLIENT_ID', 'YOUR_CLIENT_ID');
-define('CLIENT_SECRET', 'YOUR_CLIENT_SECRET');
-define('TENANT_ID', 'YOUR_TENANT_ID');
-define('REDIRECT_URI', 'YOUR_REDIRECT_URI');
+define('CLIENT_ID', getenv('CLIENT_ID'));
+define('CLIENT_SECRET', getenv('CLIENT_SECRET'));
+define('TENANT_ID', getenv('TENANT_ID'));
+define('REDIRECT_URI', getenv('REDIRECT_URI'));
 define('AUTH_URL', 'https://login.microsoftonline.com/' . TENANT_ID . '/oauth2/v2.0/authorize');
 define('TOKEN_URL', 'https://login.microsoftonline.com/' . TENANT_ID . '/oauth2/v2.0/token');
 define('GRAPH_URL', 'https://graph.microsoft.com/v1.0');
