@@ -9,10 +9,10 @@ $dotenv->load();
 
 session_start();
 
-define('CLIENT_ID', getenv('CLIENT_ID'));
-define('CLIENT_SECRET', getenv('CLIENT_SECRET'));
-define('TENANT_ID', getenv('TENANT_ID'));
-define('REDIRECT_URI', getenv('REDIRECT_URI'));
+define('CLIENT_ID', $_ENV['CLIENT_ID']);
+define('CLIENT_SECRET', $_ENV['CLIENT_SECRET']);
+define('TENANT_ID', $_ENV['TENANT_ID']);
+define('REDIRECT_URI', $_ENV['REDIRECT_URI']);
 define('AUTH_URL', 'https://login.microsoftonline.com/' . TENANT_ID . '/oauth2/v2.0/authorize');
 define('TOKEN_URL', 'https://login.microsoftonline.com/' . TENANT_ID . '/oauth2/v2.0/token');
 define('GRAPH_URL', 'https://graph.microsoft.com/v1.0');
@@ -34,14 +34,24 @@ if (!isset($_GET['code'])) {
 }
 
 // Step 2: Handle the callback and retrieve access token
-if (isset($_GET['code']) && !isset($_SESSION['access_token'])) {
-    $token = fetchAccessToken($_GET['code']);
-    if (isset($token['access_token'])) {
-        $_SESSION['access_token'] = $token['access_token'];
-    } else {
-        die('Error retrieving access token: ' . $token['error']);
+if (isset($_GET['code'])){ 
+    if(!isset($_SESSION['access_token'])) {
+        $token = fetchAccessToken($_GET['code']);
+        if (isset($token['access_token'])) {
+            $_SESSION['access_token'] = $token['access_token'];
+        } else {
+            die('Error retrieving access token: ' . $token['error']);
+        }
     }
-}
+    if(!isset($_SESSION['token_info'])) {
+        if (isset($token['access_token'])) {
+            $_SESSION['token_info'] = $token;
+        }
+    }
+    echo '<h3>Token Info:</h3>';
+    echo '<pre>' . print_r($_SESSION['token_info'], true) . '</pre>';
+} 
+
 
 // Step 3: Fetch user info and ServicePrincipal
 if (isset($_SESSION['access_token'])) {
