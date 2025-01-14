@@ -1,0 +1,11 @@
+services:
+  php-apache:
+      image: php:8.2-apache
+      build: ./test
+      container_name: php_webserver
+      restart: no
+      ports:
+        - "7799:80"
+      volumes:
+        - "./src:/var/www/html"
+        - "./test/apache.conf:/usr/local/apache2/conf/httpd.conf:ro"
