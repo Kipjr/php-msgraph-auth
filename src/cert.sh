@@ -1,14 +1,16 @@
 #!/bin/bash
-DNS=${1:-192.168.2.6}
+DNS=${1:-localhost}
+DIRECTORY=${2:-/etc/apache2}
 
-mkdir -p /etc/apache/ssl
+mkdir -p "${DIRECTORY}/ssl"
+touch "${DIRECTORY}/ssl/server.key"
+touch "${DIRECTORY}/ssl/server.crt"
 
-openssl req -x509 -nodes -days 365 \
-  -newkey rsa:2048 \
-  -keyout /etc/apache2/ssl/server.key \
-  -out /etc/apache2/ssl/server.crt \
-  -subj "/C=NL/L=City/O=Organization/OU=Department/CN=${DNS}"
+openssl req -x509 -nodes -days 7 \
+  -newkey rsa:4096 \
+  -keyout ${DIRECTORY}/ssl/server.key \
+  -out ${DIRECTORY}/ssl/server.crt \
+  -subj "/C=NL/L=City/O=Organization/OU=Department/CN=${DNS}" \
   -extensions v3_ca \
+  -addext "basicConstraints=critical,CA:FALSE" \
   -addext "subjectAltName=DNS:${DNS}"
-
-
