@@ -1,0 +1,16 @@
+services:
+  php-apache:
+      image: php:8.2-apache
+      build:
+        context: ./src
+        dockerfile: Dockerfile
+        args:
+          DNS: ${FQDN_REDIRECT_URI}
+      container_name: php_webserver
+      restart: no
+      ports:
+        - "${PORT}:443"
+      volumes:
+        - "./src/html:/var/www/html"
+        - "./.env:/var/www/html/.env:ro"
+        - "./src/apache.conf:/etc/apache2/sites-enabled/000-default.conf:ro"
