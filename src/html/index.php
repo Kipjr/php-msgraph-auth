@@ -1,8 +1,18 @@
 <?php
+
+use Microsoft\Kiota\Authentication\Oauth\AuthorizationCodeContext;
+use Microsoft\Graph\Core\Authentication\GraphPhpLeagueAuthenticationProvider;
+
 require 'vendor/autoload.php';
 
-use Microsoft\Graph\Graph;
-use Microsoft\Graph\Model;
+$tokenRequestContext = new AuthorizationCodeContext(
+    'tenantId',
+    'clientId',
+    'clientSecret',
+    'authCode',
+    'redirectUri'
+);
+
 
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
@@ -30,8 +40,7 @@ if(ENVIRONMENT == 'dev'){
 }
 
 function getErrorInfo($e){
-    echo("<pre>");
-    
+    echo("<pre>");   
     print_r("<b>File:</b>\n\t" . $e->getFile() . "\n\n");
     print_r("<b>Line:</b>\n\t" . $e->getLine() . "\n\n");
     print_r("<b>Message:</b>\n\t" . $e->getMessage() . "\n\n");
@@ -39,6 +48,7 @@ function getErrorInfo($e){
     debug_print_backtrace();
     echo("\n</pre>");
 }
+
 function printCollapsible($summary,$object){
     echo '<details><summary>' . $summary . ':</summary>';
     echo '<pre>' . print_r($object, true) . '</pre></details>';
@@ -87,6 +97,8 @@ if (!isset($_GET['code'])) {
     exit;
 }
 
+try {
+    $user = $graphServiceClient->
 // Step 2: Handle the callback and retrieve access token
 if (isset($_GET['code'])){ 
     if(!isset($_SESSION['access_token'])) {
@@ -108,9 +120,6 @@ if (isset($_GET['code'])){
 
 // Step 3: Fetch user info and ServicePrincipal
 if (isset($_SESSION['access_token'])) {
-    $graph = new Graph();
-    $graph->setAccessToken($_SESSION['access_token']);
-
     try {
         // Get user info
         $user = $graph->createRequest('GET', '/me')
