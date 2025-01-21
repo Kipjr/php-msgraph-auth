@@ -1,9 +1,20 @@
 <?php
 require 'vendor/autoload.php';
 
+use Microsoft\Graph\Core\Authentication\GraphPhpLeagueAccessTokenProvider;
+use Microsoft\Graph\Core\Authentication\GraphPhpLeagueAuthenticationProvider;
+use Microsoft\Graph\Core\GraphConstants;
+
 use Microsoft\Graph\GraphServiceClient;
-use Microsoft\Kiota\Authentication\OAuth\ClientCredentialContext;
-use Microsoft\Kiota\Authentication\OAuth\AuthorizationCodeContext;
+use Microsoft\Graph\Generated\ServicePrincipals\ServicePrincipalsRequestBuilderGetRequestConfiguration;
+
+use Microsoft\Kiota\Abstractions\ApiException;
+use Microsoft\Kiota\Authentication\Cache\InMemoryAccessTokenCache;
+use Microsoft\Kiota\Authentication\Oauth\AuthorizationCodeContext;
+use Microsoft\Kiota\Authentication\Oauth\ClientCredentialContext;
+
+use League\OAuth2\Client\Token\AccessToken;
+
 
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
@@ -34,7 +45,7 @@ if (ENVIRONMENT == 'dev') {
  * Helper function to print error information.
  */
 function getErrorInfo($e) {
-    echo("<pre>");
+    echo("<br><hr><pre>");
     print_r("<b>File:</b>\n\t" . $e->getFile() . "\n\n");
     print_r("<b>Line:</b>\n\t" . $e->getLine() . "\n\n");
     print_r("<b>Message:</b>\n\t" . $e->getMessage() . "\n\n");
@@ -46,8 +57,12 @@ function getErrorInfo($e) {
  * Function to print collapsible HTML elements for debugging.
  */
 function printCollapsible($summary, $object) {
-    echo '<details><summary>' . $summary . ':</summary>';
-    echo '<pre>' . print_r($object, true) . '</pre></details>';
+    if(!$object){
+        echo "&#11208;" . $summary . ": empty";
+    } else {
+        echo '<details><summary>' . $summary . ':</summary>';
+        echo '<pre>' . print_r($object, true) . '</pre></details>';
+    }
 }
 
 // Step 1: Generate the Microsoft login link
@@ -61,50 +76,97 @@ if (!isset($_GET['code'])) {
         'state'         => CSRF
     ]);
 
-    echo '<a href="' . htmlspecialchars($loginUrl) . '">Login with Microsoft Entra</a>';
+    echo '<a href="' . htmlspecialchars($loginUrl) . '"><button>Login with Microsoft Entra</button></a>';
+    echo "<br><br><hr><pre>";
+    $url = parse_url(urldecode($loginUrl));
+    parse_str(($url['query']), $queryParams);
+    print_r($url);
+
+    print_r($queryParams);
+    echo "</pre>";
     exit;
 }
 
-// Step 2: Handle callback and retrieve the access token
-if (isset($_GET['code']) && !isset($_SESSION['access_token'])) {
-    $authContext = new AuthorizationCodeContext(CLIENT_ID, CLIENT_SECRET, TENANT_ID, $_GET['code'], REDIRECT_URI);
-    $tokenRequest = $authContext->getTokenRequestContext();
 
-    $accessToken = $tokenRequest->getAccessToken();
-    $_SESSION['access_token'] = $accessToken->getToken();
-    $_SESSION['token_info'] = $accessToken;
-
-    printCollapsible("Token Info", $_SESSION['token_info']);
-}
-
-// Step 3: Fetch user info and service principal
-if (isset($_SESSION['access_token'])) {
+// // Step 2: Handle callback and retrieve the access token
+if (isset($_GET['code']) && empty($_SESSION['auth_provider'])) {
     try {
-        // Initialize Graph client with the access token
-        $graphClient = new GraphServiceClient(new ClientCredentialContext(CLIENT_ID, CLIENT_SECRET, TENANT_ID));
-        $graphClient->setAccessToken($_SESSION['access_token']);
 
-        // Get user profile
-        $user = $graphClient->me()->get();
+        
+        /* 
+            Token
+        */        
+        $tokenRequestContext = new AuthorizationCodeContext(
+            TENANT_ID,
+            CLIENT_ID,
+            CLIENT_SECRET,
+            $_GET['code'],
+            REDIRECT_URI
+        );
+
+        /*
+         $inMemoryCache = new InMemoryAccessTokenCache();
+
+        $graphServiceClient = GraphServiceClient::createWithAuthenticationProvider(
+            GraphPhpLeagueAuthenticationProvider::createWithAccessTokenProvider(
+                GraphPhpLeagueAccessTokenProvider::createWithCache(
+                    $inMemoryCache,
+                    $tokenRequestContext,
+                    explode(' ',SCOPES)
+                )
+            )
+        );
+        
+        $accessToken = $inMemoryCache->getTokenWithContext($tokenRequestContext);
+        */
+        
+        $graphServiceClient = new GraphServiceClient($tokenRequestContext, explode(' ',SCOPES));
+        if(isset($accessToken)){
+            printCollapsible("Token", $accessToken);
+        } else {
+            printCollapsible("Token",null);
+        }
+
+        /* 
+            USER
+        */
+        $user = $graphServiceClient->me()->get();
+        if (!$user) {
+            throw new Exception('Failed to fetch user profile.');
+        }
         printCollapsible("User Info", $user);
 
-        // Get ServicePrincipal for the app
-        $appId = CLIENT_ID;
-        $servicePrincipals = $graphClient->servicePrincipals()
-            ->getByQuery(["\$filter" => "appId eq '$appId'"]);
+        /* 
+            servicePrincipals
+        */
+        $requestConfiguration = new ServicePrincipalsRequestBuilderGetRequestConfiguration();
+        $headers = [
+                'ConsistencyLevel' => 'eventual',
+            ];
+        $requestConfiguration->headers = $headers;
+        $queryParameters = ServicePrincipalsRequestBuilderGetRequestConfiguration::createQueryParameters();
+        $queryParameters->search = "\"appId:" . CLIENT_ID . "\"";
+        $requestConfiguration->queryParameters = $queryParameters;
+        $servicePrincipals = $graphServiceClient->servicePrincipals()->get($requestConfiguration)->wait();
+        if (empty($servicePrincipals) || empty($servicePrincipals->getValue())) {
+            throw new Exception('No service principal found for the given appId.');
+        }
 
         $servicePrincipalId = $servicePrincipals->getValue()[0]->getId();
-        printCollapsible("Service Principal Info", $servicePrincipals);
+        printCollapsible("Service Principal Info", $servicePrincipals->getValue());
 
-        // Fetch assigned app roles
-        $appRoleAssignedTo = $graphClient->servicePrincipalsById($servicePrincipalId)
-            ->appRoleAssignedTo()
-            ->get();
-
-        printCollapsible("Service Principal/appRoleAssignedTo", $appRoleAssignedTo);
+        /* 
+            appRoleAssignedTo
+        */        
+        $appRoleAssignedTo = $graphServiceClient->servicePrincipals()
+        ->byServicePrincipalId($servicePrincipalId)
+        ->appRoleAssignedTo()
+        ->get()
+        ->wait();
+        printCollapsible("Service Principal/appRoleAssignedTo", $appRoleAssignedTo->getValue());
 
     } catch (Exception $e) {
         getErrorInfo($e);
-        die('Execution stopped...');
+        die('Error during Microsoft Graph API operations.');
     }
 }
